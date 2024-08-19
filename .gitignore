@@ -1,0 +1,132 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+multinest/
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+test_cases/
+var/
+wheels/
+test_output/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+brainstorming/
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.pickle
+# Spyder project settings
+.spyderproject
+.spyproject
+
+
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.vscode/settings.json
+.DS_Store
+taurex/external/bh_mie.c
+taurex/external/ace-f2pywrappers2.f90
+taurex/external/acemodule.c
+.vscode/ipch/22f44eeddc4f9f6d/mmap_address.bin
+*.prof
+.DS_Store
+pytest.ini
+
+# PYCHEGP outputs
+pychegp/ode/odepackmodule.c
+pychegp/ode/odepack-f2pywrappers.f
+pychegp/equil/md_ace-f2pywrappers2.f90
+
+fractions_*.dat
+*.mp4
+*.history
+
+test_output/
+
+*.mod
+*.bak
+*.c

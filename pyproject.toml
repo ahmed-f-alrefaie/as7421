@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "as7421"
+version = "0.1.0"
+description = ""
+authors = ["Ahmed <ahmed.al-refaie.12@ucl.ac.uk>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+i2cdevice = "^1.0.0"
+astropy = "^6.1.1"
+
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^8.26.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
