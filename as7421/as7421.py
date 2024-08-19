@@ -308,6 +308,16 @@ class AS7421:
                     )
                     for idx, ch in enumerate(["A", "B", "C", "D"])
                 ),
+                Register(
+                    "TEMP",
+                    0x78,
+                    fields=[
+                        BitField(f"TEMP_{x}", 0xFFFF << 48 - 16 * idx, bit_width=16)
+                        for idx, x in enumerate(["A", "B", "C", "D"])
+                    ],
+                    read_only=True,
+                    bit_width=64,
+                ),
             ),
         )
 
@@ -470,6 +480,17 @@ class AS7421:
         data = []
         for ch in ["A", "B", "C", "D"]:
             data.extend(self.channel_data(ch))
+        return data
+
+    def temperature_data(self, channel_label: t.Literal["A", "B", "C", "D"]) -> int:
+        reg = self.device.get("TEMP")
+        return getattr(reg, f"TEMP_{channel_label}")
+
+    def all_temperature_data(self) -> t.List[t.List[int]]:
+        data = []
+        reg = self.device.get("TEMP")
+        for ch in ["A", "B", "C", "D"]:
+            data.extend([getattr(reg, f"TEMP_{ch}")])
         return data
 
     def enable_autozero(
