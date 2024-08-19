@@ -6,74 +6,9 @@ from astropy import units as u
 import datetime
 import time
 from dataclasses import dataclass
+
 CLOCK = 1 << u.MHz
 
-channel_wavelengths = {
-    0: 830,
-    1: 750,
-    2: 790,
-    3: 870,
-    4: 940,
-    5: 980,
-    6: 1020,
-    7: 830,
-    8: 760,
-    9: 800,
-    10: 840,
-    11: 880,
-    12: 930,
-    13: 970,
-    14: 1010,
-    15: 1050,
-    16: 770,
-    17: 810,
-    18: 850,
-    19: 890,
-    20: 920,
-    21: 960,
-    22: 1000,
-    23: 1040,
-    24: 780,
-    25: 820,
-    26: 860,
-    27: 900,
-    28: 910,
-    29: 950,
-    30: 990,
-    31: 1030,
-    32: 775,
-    33: 815,
-    34: 855,
-    35: 895,
-    36: 905,
-    37: 945,
-    38: 985,
-    39: 1025,
-    40: 765,
-    41: 805,
-    42: 845,
-    43: 885,
-    44: 915,
-    45: 955,
-    46: 995,
-    47: 1035,
-    48: 755,
-    49: 795,
-    50: 835,
-    51: 875,
-    52: 926,
-    53: 965,
-    54: 1005,
-    55: 1045,
-    56: 830,
-    57: 785,
-    58: 825,
-    59: 865,
-    60: 935,
-    61: 975,
-    62: 1015,
-    63: 830,
-}
 
 @dataclass
 class MeasumentStatus:
@@ -90,6 +25,20 @@ class MeasumentStatus:
 
     def __repr__(self):
         return self.__str__()
+
+    def any_set(self):
+        return any(
+            [
+                self.data_lost,
+                self.digital_saturation,
+                self.analog_saturation,
+                self.temperature_shutdown,
+                self.end_of_autozero,
+                self.data_available,
+            ]
+        )
+
+
 class TimeAdapter(Adapter):
 
     def _decode(self, value: int) -> u.Quantity:
@@ -103,7 +52,7 @@ class TimeAdapter(Adapter):
         return ((value + 1) / CLOCK).to(u.s)
 
     def _encode(self, value: u.Quantity) -> int:
-        res = max(int((value * CLOCK).decompose()) - 1,0)
+        res = max(int((value * CLOCK).decompose()) - 1, 0)
         # Goes low, mid, high bytes
         low = res & 0xFF
         mid = (res >> 8) & 0xFF
@@ -116,6 +65,7 @@ class AS7421:
 
     def __init__(self, bus: t.Optional[int] = 1):
         import time
+
         self.create_device(bus)
         self.reset()
         time.sleep(0.1)
@@ -123,8 +73,6 @@ class AS7421:
         while self.is_resetting():
             time.sleep(0.01)
         print("Reset complete")
-        
-
 
     def is_resetting(self) -> bool:
         return bool(self.device.get("CFG_MISC").SW_RESET)
@@ -132,14 +80,16 @@ class AS7421:
     def create_device(self, bus):
         self.device = Device(
             0x64,
+            i2c_dev=smbus2.SMBus(bus),
             bit_width=8,
             registers=(
                 *tuple(
                     Register(
-                    f"CFG_RAM_{x}",
-                    0x40 + x,
-                    fields=(BitField(f"VALUE", 0xFF),),
-                    ) for x in range(32)
+                        f"CFG_RAM_{x}",
+                        0x40 + x,
+                        fields=(BitField(f"VALUE", 0xFF),),
+                    )
+                    for x in range(32)
                 ),
                 Register(
                     "ENABLE",
@@ -159,8 +109,8 @@ class AS7421:
                             ),
                         ),
                         BitField("SYNC_EN", 0b00001000),
-                        BitField("TSD_EN",  0b00000100),
-                        BitField("LTF_EN",  0b00000010),
+                        BitField("TSD_EN", 0b00000100),
+                        BitField("LTF_EN", 0b00000010),
                         BitField("POWERON", 0b00000001),
                     ),
                 ),
@@ -192,10 +142,7 @@ class AS7421:
                                 }
                             ),
                         ),
-                        BitField(
-                            "CLKMOD",
-                            0b00000111
-                        ),
+                        BitField("CLKMOD", 0b00000111),
                     ),
                 ),
                 Register(
@@ -217,35 +164,46 @@ class AS7421:
                     0x6A,
                     fields=(
                         BitField("REG_BANK", 0b10000000),
-                        BitField("RAM_OFFSET", 0b00011111,LookupAdapter({
-                            "UNSET": 0x00,
-                            "SMUX_A": 0x0C,
-                            "SMUX_B": 0x0D,
-                            "SMUX_C": 0x0E,
-                            "SMUX_D": 0x0F,
-                            "ASETUP_AB": 0x10,
-                            "ASETUP_CD": 0x11,
-                            "COMPDAC": 0x12,
-                        })),
-
-                    ),),
+                        BitField(
+                            "RAM_OFFSET",
+                            0b00011111,
+                            LookupAdapter(
+                                {
+                                    "UNSET": 0x00,
+                                    "SMUX_A": 0x0C,
+                                    "SMUX_B": 0x0D,
+                                    "SMUX_C": 0x0E,
+                                    "SMUX_D": 0x0F,
+                                    "ASETUP_AB": 0x10,
+                                    "ASETUP_CD": 0x11,
+                                    "COMPDAC": 0x12,
+                                }
+                            ),
+                        ),
+                    ),
+                ),
                 Register(
                     "CFG_AZ",
                     0x6D,
                     fields=(
                         BitField("AZ_ON", 0b10000000),
-                        BitField("AZ_WTIME", 0b01100000, adapter=LookupAdapter({
-                            "32us": 0x00,
-                            "64us": 0x01,
-                            "128us": 0x02,
-                            "256us": 0x03,
-                        })),
+                        BitField(
+                            "AZ_WTIME",
+                            0b01100000,
+                            adapter=LookupAdapter(
+                                {
+                                    "32us": 0x00,
+                                    "64us": 0x01,
+                                    "128us": 0x02,
+                                    "256us": 0x03,
+                                }
+                            ),
+                        ),
                         BitField("AZ_EN", 0b00010000),
                         BitField("AZ_CYCLE", 0b00001000),
                         BitField("AZ_ITERATION", 0b00000111),
                     ),
-                    ),
-                
+                ),
                 Register(
                     "CFG_LED_MULT",
                     0x39,
@@ -274,7 +232,7 @@ class AS7421:
                     "LTF_CCOUNT",
                     0x3A,
                     fields=(BitField("CCOUNT", 0xFFFF, adapter=U16ByteSwapAdapter()),),
-                    bit_width=16
+                    bit_width=16,
                 ),
                 Register(
                     "STATUS_0",
@@ -288,13 +246,13 @@ class AS7421:
                     fields=(BitField("REV_ID", 0b00111111),),
                     read_only=True,
                 ),
-                Register("STATUS_ASAT",
-                         0x72,
-                         fields=tuple(
-                             BitField(f"ASAT_{x}", 0b0000000000000001 << x)
-                             for x in range(16)
-                             
-                         ),
+                Register(
+                    "STATUS_ASAT",
+                    0x72,
+                    fields=tuple(
+                        BitField(f"ASAT_{x}", 0b0000000000000001 << x)
+                        for x in range(16)
+                    ),
                 ),
                 Register(
                     "STATUS_6",
@@ -307,7 +265,7 @@ class AS7421:
                 ),
                 Register(
                     "STATUS_7",
-                    0x76,
+                    0x77,
                     fields=(
                         BitField("I2C_DATA_POINTER", 0b11000000),
                         BitField("DLOST", 0b00100000),
@@ -324,36 +282,38 @@ class AS7421:
                     "INT_EN",
                     0x67,
                     fields=(
-                        BitField("EN_ADATA",0b00000001),
-                        BitField("EN_AZ",0b00000010),
-                        BitField("EN_TSD",0b00000100),
-                        BitField("EN_ASAT",0b00001000),
-                        BitField("EN_DSAT",0b00010000),
-                        BitField("EN_DLOST",0b00100000),
+                        BitField("EN_ADATA", 0b00000001),
+                        BitField("EN_AZ", 0b00000010),
+                        BitField("EN_TSD", 0b00000100),
+                        BitField("EN_ASAT", 0b00001000),
+                        BitField("EN_DSAT", 0b00010000),
+                        BitField("EN_DLOST", 0b00100000),
                     ),
                 ),
                 *tuple(
                     Register(
                         f"CHANNEL_{ch}",
-                        0x80 + 32*idx,
+                        0x80 + 32 * idx,
                         fields=tuple(
-                            BitField(f"CH{x}", 0xFFFF << 240 - 16*x,bit_width=16, adapter=U16ByteSwapAdapter()) for x in range(16)
-                        ), 
+                            BitField(
+                                f"CH{x}",
+                                0xFFFF << 240 - 16 * x,
+                                bit_width=16,
+                                adapter=U16ByteSwapAdapter(),
+                            )
+                            for x in range(16)
+                        ),
                         read_only=True,
-                        bit_width=32*8,
+                        bit_width=32 * 8,
                     )
-                    for idx,ch in enumerate(["A", "B", "C", "D"])
+                    for idx, ch in enumerate(["A", "B", "C", "D"])
                 ),
             ),
         )
 
     def powerup(self):
 
-        self.device._i2c_write(0x6F, 0x44, 8)
-        self.device._i2c_write(0x6E, 0x20, 8)
-        self.device._i2c_write(0x6F, 0x00, 8)
         self.device.set("ENABLE", POWERON=1)
-        self.device.set("CFG_LED", SET_LED_ON=0)
 
     def sleep(self):
         self.device.set("CFG_LED", SET_LED_ON=0)
@@ -362,10 +322,10 @@ class AS7421:
     def print_ram(self):
         for x in range(32):
             ram_value = f"CFG_RAM_{x}"
-            #print ram data in hex
+            # print ram data in hex
 
             print(f"RAM[{x}] = {self.device.get(ram_value).VALUE:02X}")
-        
+
     def write_ram_data(self, data: t.List[int], offset: int):
         for idx, value in enumerate(data):
             self.device.set(f"CFG_RAM_{idx + offset}", VALUE=value)
@@ -374,32 +334,49 @@ class AS7421:
         data = [value] * 32
         self.device.set("CFG_RAM", RAM_OFFSET="ASETUP_AB", REG_BANK=0)
         self.write_ram_data(data, 0)
-        #self.print_ram()
+        # self.print_ram()
         self.device.set("CFG_RAM", RAM_OFFSET="ASETUP_CD", REG_BANK=0)
         self.write_ram_data(data, 0)
-        #self.print_ram()
-    def configure_smux(self):
-        default_smux = [0x21,0x21,0x21,0x21,0x43,0x43,0x43,0x43]
-        res = self.device.set("CFG_RAM", RAM_OFFSET="SMUX_A")
-        self.write_ram_data(default_smux, 0)
-        #self.print_ram()
-        res = self.device.set("CFG_RAM", RAM_OFFSET="SMUX_B")
-        self.write_ram_data(default_smux, 8)
-        #self.print_ram()
-        res = self.device.set("CFG_RAM", RAM_OFFSET="SMUX_C")
-        self.write_ram_data(default_smux, 16)
-        #self.print_ram()
-        res = self.device.set("CFG_RAM", RAM_OFFSET="SMUX_D")
-        self.write_ram_data(default_smux, 24)
-        #self.print_ram()
+        # self.print_ram()
 
+    def zero_smux(self):
+        zero_smux = [0] * 32
+        for x in ["SMUX_A", "SMUX_B", "SMUX_C", "SMUX_D"]:
+            res = self.device.set("CFG_RAM", RAM_OFFSET=x)
+            self.write_ram_data(zero_smux, 0)
+
+    def configure_smux(self, smux_data=None):
+        default_smux = smux_data
+        self.zero_smux()
+        zero_smux = [0] * 32
+        if default_smux is None:
+            default_smux = [0x21, 0x21, 0x21, 0x21, 0x43, 0x43, 0x43, 0x43]
+        self.configure_smux_a(default_smux)
+        self.configure_smux_b(default_smux)
+        self.configure_smux_c(default_smux)
+        self.configure_smux_d(default_smux)
+        # self.print_ram()
+
+    def _configure_smux(self, smux_data, offset: int, ram_offset: str):
+        res = self.device.set("CFG_RAM", RAM_OFFSET=ram_offset)
+        self.write_ram_data(smux_data, offset)
+
+    def configure_smux_a(self, smux_data):
+        self._configure_smux(smux_data, 0, "SMUX_A")
+
+    def configure_smux_b(self, smux_data):
+        self._configure_smux(smux_data, 8, "SMUX_B")
+
+    def configure_smux_c(self, smux_data):
+        self._configure_smux(smux_data, 16, "SMUX_C")
+
+    def configure_smux_d(self, smux_data):
+        self._configure_smux(smux_data, 24, "SMUX_D")
 
     def pfn_enable(self):
         self.configure_smux()
         self.configure_gain()
         self.configure_led()
-
-
 
     @property
     def num_measurements(self) -> int:
@@ -409,27 +386,36 @@ class AS7421:
     def num_measurements(self, value: int):
         self.device.set("LTF_ICOUNT", ICOUNT=value & 0xFF)
 
-
-    def configure_led(self, current: t.Optional[t.Literal["50mA", "75mA"]] = "50mA"):
+    def configure_led(
+        self, current: t.Optional[t.Literal["50mA", "75mA"]] = "50mA", leds=0x1F
+    ):
         for x in range(4):
             self.device.set("CFG_LED", LED_OFFSET=x)
-            self.device.set("CFG_LED_MULT", LED_MULT=0x1F)
+            self.device.set("CFG_LED_MULT", LED_MULT=leds)
         self.device.set("CFG_LED", LED_OFFSET=0)
         self.device.set("CFG_LED", LED_CURRENT=current)
-
 
     def disable_led_wait(self):
         self.device.set("CFG_MISC", LED_WAIT_OFF=1)
 
+    def enable_led_wait(self):
+        self.device.set("CFG_MISC", LED_WAIT_OFF=0)
+
     def reset(self):
         self.device.set("CFG_MISC", SW_RESET=1)
 
-    def start_measurement(self):
-        self.device.set("ENABLE", POWERON=1,LTF_EN=1, TSD_EN=1,LED_AUTO="ON")
-    
+    def switch_on_led(self):
+        self.device.set("CFG_LED", SET_LED_ON=1)
+
+    def switch_off_led(self):
+        self.device.set("CFG_LED", SET_LED_ON=0)
+
+    def start_measurement(self, with_led: bool = False):
+        led_flag = "ON" if with_led else "OFF"
+        self.device.set("ENABLE", POWERON=1, LTF_EN=1, TSD_EN=1, LED_AUTO=led_flag)
 
     def stop_measurement(self):
-        self.device.set("ENABLE", LTF_EN=0, TSD_EN=0, POWERON=0,LED_AUTO="OFF")
+        self.device.set("ENABLE", LTF_EN=0, TSD_EN=0, LED_AUTO="OFF")
 
     def measurement_status(self) -> MeasumentStatus:
         reg = self.device.get("STATUS_7")
@@ -440,17 +426,20 @@ class AS7421:
             analog_saturation=bool(reg.ASAT),
             temperature_shutdown=bool(reg.TSD),
             end_of_autozero=bool(reg.AZ),
-            data_available=bool(reg.ADATA))
+            data_available=bool(reg.ADATA),
+        )
 
     @property
     def measurement_ready(self):
         measurement_stat = self.measurement_status()
-        #print(self.device.get("STATUS_6"))
-        #print(measurement_stat)
-        return measurement_stat.data_available or (not self.ltf_status)
-    
+        if measurement_stat.data_available:
+            print("-------")
+            print(measurement_stat)
+            print("-------")
+        return measurement_stat.data_available
+
     @property
-    def ltf_status(self):
+    def ltf_busy(self):
         return bool(self.device.get("STATUS_6").LTF_BUSY)
 
     @property
@@ -470,35 +459,50 @@ class AS7421:
         self.device.set("LTF_WTIME", WTIME=value)
 
     def enable_all_channels(self):
-        self.device.set("CFG_LTF", LTF_CYCLE="A")
+        self.device.set("CFG_LTF", LTF_CYCLE="ABCD")
 
-    def channel_data(self, channel_label: t.Literal["A", "B","C","D"]) -> t.List[int]:
+    def channel_data(self, channel_label: t.Literal["A", "B", "C", "D"]) -> t.List[int]:
         reg = self.device.get(f"CHANNEL_{channel_label}")
 
         return [getattr(reg, f"CH{x}") for x in range(16)]
-    
+
     def all_channel_data(self) -> t.List[t.List[int]]:
         data = []
         for ch in ["A", "B", "C", "D"]:
             data.extend(self.channel_data(ch))
         return data
 
-    def enable_autozero(self, enable: bool, cycle: t.Optional[int] = 0, iteration: t.Optional[int] = 0, wtime: t.Optional[str] = 0):
-        self.device.set("CFG_AZ", AZ_EN=enable,
-                        AZ_ON=1,
-                        AZ_CYCLE=int(cycle), AZ_ITERATION=int(iteration), AZ_WTIME=wtime)
-        
+    def enable_autozero(
+        self,
+        enable: bool,
+        cycle: t.Optional[int] = 0,
+        iteration: t.Optional[int] = 0,
+        wtime: t.Optional[str] = 0,
+    ):
+        self.device.set(
+            "CFG_AZ",
+            AZ_EN=enable,
+            AZ_ON=1,
+            AZ_CYCLE=int(cycle),
+            AZ_ITERATION=int(iteration),
+            AZ_WTIME=wtime,
+        )
+
     def setup_regs(self):
-        self.device.set("CFG_MISC", LED_WAIT_OFF=0, WAIT_CYCLE_ON=0)
-        self.device.set("LED_WAIT", LED_WAIT=10)
-        #self.device.set("LTF_CCOUNT", CCOUNT=1023)
+        self.device.set("CFG_MISC", LED_WAIT_OFF=0, WAIT_CYCLE_ON=1)
+        self.device.set("LED_WAIT", LED_WAIT=2)
+        self.device.set("LTF_CCOUNT", CCOUNT=1023)
         self.device.set("ENABLE", LED_AUTO="OFF")
         self.integration_time = 20 << u.ms
         self.wait_time = 10 << u.ms
         self.num_measurements = 1
-        self.device.set("CFG_LTF", LTF_CYCLE="A")
+        self.device.set("CFG_LTF", LTF_CYCLE="ABCD")
         self.enable_autozero(
-            True, 1, 0, "32us",
+            True,
+            1,
+            0,
+            "128us",
         )
-       # self.device.set("CFG_LED", LED_CURRENT="50mA", SET_LED_ON=0)
+        self.enable_led_wait()
 
+    # self.device.set("CFG_LED", LED_CURRENT="50mA", SET_LED_ON=0)
