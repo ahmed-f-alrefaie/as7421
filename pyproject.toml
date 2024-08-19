@@ -9,6 +9,7 @@ readme = "README.md"
 python = "^3.10"
 i2cdevice = "^1.0.0"
 astropy = "^6.1.1"
+construct = "^2.10.70"
 
 
 [tool.poetry.group.dev.dependencies]

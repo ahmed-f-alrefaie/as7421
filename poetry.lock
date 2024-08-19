@@ -94,6 +94,20 @@ files = [
 ]
 
 [[package]]
+name = "construct"
+version = "2.10.70"
+description = "A powerful declarative symmetric parser/builder for binary data"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "construct-2.10.70-py3-none-any.whl", hash = "sha256:c80be81ef595a1a821ec69dc16099550ed22197615f4320b57cc9ce2a672cb30"},
+    {file = "construct-2.10.70.tar.gz", hash = "sha256:4d2472f9684731e58cc9c56c463be63baa1447d674e0d66aeb5627b22f512c29"},
+]
+
+[package.extras]
+extras = ["arrow", "cloudpickle", "cryptography", "lz4", "numpy", "ruamel.yaml"]
+
+[[package]]
 name = "decorator"
 version = "5.1.1"
 description = "Decorators for Humans"
@@ -581,4 +595,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "e6426cb33d5314db7a5669be31e4ba9caf73b3a16e13ef47b058a0cd2c2e6082"
+content-hash = "5966bb292961fb361396c3bf33703733f0eb5415878a9e1eb9e595ec30ef6146"
