@@ -3,11 +3,93 @@ from i2cdevice.adapter import Adapter, LookupAdapter, U16ByteSwapAdapter
 import smbus2
 import typing as t
 from astropy import units as u
-import datetime
-import time
 from dataclasses import dataclass
+from enum import IntEnum, Enum
+
+
+class LED(IntEnum):
+    LED_1 = 0x01
+    LED_2 = 0x02
+    LED_4 = 0x04
+    LED_3 = 0x08
+    ALL = 0x1F
+
+
+class ChannelEnable(str, Enum):
+    A = "A"
+    AB = "AB"
+    ABC = "ABC"
+    ABCD = "ABCD"
+
 
 CLOCK = 1 << u.MHz
+
+ESTIMATED_WAVELENGTHS = [
+    930,
+    770,
+    760,
+    990,
+    790,
+    895,
+    955,
+    880,
+    825,
+    875,
+    835,
+    845,
+    1020,
+    950,
+    1010,
+    995,
+    750,
+    980,
+    780,
+    970,
+    965,
+    860,
+    915,
+    805,
+    820,
+    830,
+    855,
+    830,
+    1000,
+    1015,
+    900,
+    1045,
+    775,
+    920,
+    765,
+    910,
+    975,
+    865,
+    935,
+    885,
+    800,
+    830,
+    850,
+    830,
+    890,
+    1040,
+    1005,
+    1035,
+    755,
+    795,
+    925,
+    785,
+    960,
+    905,
+    940,
+    985,
+    810,
+    840,
+    815,
+    870,
+    1025,
+    1050,
+    1030,
+    945,
+]
 
 
 @dataclass
@@ -397,8 +479,9 @@ class AS7421:
         self.device.set("LTF_ICOUNT", ICOUNT=value & 0xFF)
 
     def configure_led(
-        self, current: t.Optional[t.Literal["50mA", "75mA"]] = "50mA", leds=0x1F
-    ):
+        self, current: t.Optional[t.Literal["50mA", "75mA"]] = "50mA", leds:t.Optional[int]=0x1F
+    ):  
+        leds = int(leds)
         for x in range(4):
             self.device.set("CFG_LED", LED_OFFSET=x)
             self.device.set("CFG_LED_MULT", LED_MULT=leds)
@@ -456,7 +539,7 @@ class AS7421:
     def integration_time(self) -> u.Quantity:
         return self.device.get("LTF_ITIME").ITIME
 
-    @integration_time.setter
+    @integration_time.
     def integration_time(self, value: u.Quantity):
         self.device.set("LTF_ITIME", ITIME=value)
 
@@ -468,8 +551,11 @@ class AS7421:
     def wait_time(self, value: u.Quantity):
         self.device.set("LTF_WTIME", WTIME=value)
 
-    def enable_all_channels(self):
-        self.device.set("CFG_LTF", LTF_CYCLE="ABCD")
+    def enable_channels(
+        self,
+        channels: t.Optional[ChannelEnable] = ChannelEnable.ABCD,
+    ):
+        self.device.set("CFG_LTF", LTF_CYCLE=channels)
 
     def channel_data(self, channel_label: t.Literal["A", "B", "C", "D"]) -> t.List[int]:
         reg = self.device.get(f"CHANNEL_{channel_label}")
@@ -509,6 +595,9 @@ class AS7421:
             AZ_WTIME=wtime,
         )
 
+    def wavelengths(self) -> t.List[int]:
+        return ESTIMATED_WAVELENGTHS
+
     def setup_regs(self):
         self.device.set("CFG_MISC", LED_WAIT_OFF=0, WAIT_CYCLE_ON=1)
         self.device.set("LED_WAIT", LED_WAIT=2)
@@ -526,4 +615,20 @@ class AS7421:
         )
         self.enable_led_wait()
 
-    # self.device.set("CFG_LED", LED_CURRENT="50mA", SET_LED_ON=0)
+    def do_measurement(
+        self, with_led: t.Optional[bool] = True, print_timing: t.Optional[bool] = False
+    ) -> t.Generator[t.Tuple[float, t.List[int], t.List[int]], None, None]:
+        import time
+
+        self.start_measurement(with_led=with_led)
+        while self.ltf_busy:
+            start = time.perf_counter()
+            while not self.measurement_ready:
+                pass
+            end = time.perf_counter()
+            if print_timing:
+                print(f"Time to get data: {end,- start}")
+            channel_data = self.all_channel_data()
+            temperature_data = self.all_temperature_data()
+            yield end, channel_data, temperature_data
+        self.stop_measurement()
